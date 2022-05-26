@@ -1,0 +1,75 @@
+import pandas as pd # load pandas library
+import json # import the json library
+import requests # to get data via api
+import numpy as np # import numpy library
+import s3fs
+
+def getdata(symbol):
+    a = symbol.reset_index() # resetting index
+    b = a.iloc[5: , :] #first five rows are removed as it contains null value, using iloc function
+    b = b.drop(['Meta Data'], axis = 1) # using drop function, dropping metadata column as it is of no use for us
+    b = b.reset_index()  # resetting index
+    lst = [i for i in b['Time Series (Daily)']] #using loop in time series (daily) column to get data in list format.
+    c = pd.DataFrame.from_dict(lst) # using from_dict function converting dict to dataframe
+    c['date'] = b['index'] #getting first column i.e. date column
+    d = c[(c['date']>'2017-01-01')] #using condition to get data for 5 years i.e. from 2015-2020
+    # renaming columns for better understanding
+    d.columns = ['open', 'high', 'low', 'close', 'volume', 'date']
+    return d #required clean data is returned
+    
+
+def main(event=None, context=None):
+    
+    url1 = 'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=AAPL&&outputsize=full&apikey=F2MED2PM07CN4D7U'
+    r1 = requests.get(url1) #getting the api file for specified ticker symbol sending GET request to the specified url
+    apple = r1.json() #converting to json
+    apple = pd.DataFrame(apple) #converting to dataframe
+    Apple = getdata(apple) #using function we defined above "getdata" to get the clean version of required data
+    
+    url2 = 'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=GME&&outputsize=full&apikey=F2MED2PM07CN4D7U'
+    r2 = requests.get(url2)
+    gamestop = r2.json()
+    gamestop = pd.DataFrame(gamestop)
+    gamestop = getdata(gamestop)
+    
+    url3 = 'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=BABA&&outputsize=full&apikey=F2MED2PM07CN4D7U'
+    r3 = requests.get(url3)
+    Baba = r3.json()
+    Baba = pd.DataFrame(Baba)
+    Baba = getdata(Baba)
+    
+    url4 = 'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=GOOG&&outputsize=full&apikey=F2MED2PM07CN4D7U'
+    r4 = requests.get(url4)
+    Alphabet = r4.json()
+    Alphabet = pd.DataFrame(Alphabet)
+    Alphabet = getdata(Alphabet)
+    
+    url5 = 'https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=TSLA&&outputsize=full&apikey=F2MED2PM07CN4D7U'
+    r5 = requests.get(url5)
+    Tesla = r5.json()
+    Tesla = pd.DataFrame(Tesla)
+    Tesla = getdata(Tesla)
+    
+    # adding additional column in each dataframe to merge them into one dataframe at the end
+    Tesla['Name'] = pd.Series(["Tesla" for x in range(len(Tesla.index))]) 
+    gamestop['Name'] = pd.Series(["Gamestop" for x in range(len(gamestop.index))])
+    Apple['Name'] = pd.Series(["Apple" for x in range(len(Apple.index))])
+    Alphabet['Name'] = pd.Series(["Alphabet" for x in range(len(Alphabet.index))])
+    Baba['Name'] = pd.Series(["Baba" for x in range(len(Baba.index))]) 
+    
+    #using concat function of pandas to merge all 5 dataframes into 1 "Stock" dataframe
+    Stock = pd.concat([Tesla, gamestop,Apple,Baba,Alphabet]) 
+    
+    pathname = 'iafinaltest/'
+    filename = f"{pathname}Stock.csv" 
+   
+    
+    byte_encoded_df = Stock.to_csv(None, index=False).encode() 
+  
+    
+    s3 = s3fs.S3FileSystem(anon=False)
+    
+    with s3.open(filename, 'wb') as file:
+        file.write(byte_encoded_df)
+    
+ 

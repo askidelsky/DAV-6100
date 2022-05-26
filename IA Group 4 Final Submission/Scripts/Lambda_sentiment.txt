@@ -1,0 +1,83 @@
+import s3fs
+import pandas as pd
+import numpy as np
+from urllib.request import urlopen, Request
+from bs4 import BeautifulSoup
+
+def getnews(name):
+    finviz_url='https://finviz.com/quote.ashx?t='
+    news_tables={}
+    
+    url=finviz_url + name
+    
+    req=Request(url=url,headers={'user-agent':'my-app'})
+    response=urlopen(req)
+    
+    html=BeautifulSoup(response,'html')
+    news_table=html.find(id='news-table')
+    news_tables[name]=news_table
+    amzn_data=news_tables[name]
+    amzn_rows=amzn_data.findAll('tr')
+    
+    for index,row in enumerate(amzn_rows):
+        title=row.a.text
+        timestamp=row.td.text
+    parsed_data=[]
+    
+    for ticker,new_table in news_tables.items():
+        for row in news_table.findAll('tr'):
+            title=row.a.get_text()
+            date_data=row.td.text.split(' ')
+            if len(date_data)==1:
+                time=date_data[0]
+            else:
+                date=date_data[0]
+                time=date_data[1]
+            parsed_data.append([ticker,date,time,title])
+    df=pd.DataFrame(parsed_data,columns=['ticker','date','time','title'])
+    df['date']=pd.to_datetime(df.date).dt.date
+    
+    return df
+
+
+
+def main(event=None, context=None):
+    
+    df1=getnews('BABA')
+    df2=getnews('AAPL')
+    df3=getnews('GME')
+    df4=getnews('GOOG')
+    df5=getnews('TSLA')
+    
+    pathname = 'iafinaltest/'
+    filename1 = f"{pathname}BABA.csv" 
+    filename2 = f"{pathname}AAPL.csv" 
+    filename3 = f"{pathname}GME.csv" 
+    filename4 = f"{pathname}GOOG.csv" 
+    filename5 = f"{pathname}TSLA.csv" 
+
+    #encoding must be adjusted to accommodate abnormal characters. Use s3fs to write to S3 bucket
+    print("Start adding stock data to csv")
+    byte_encoded_df1 = df1.to_csv(None, index=False).encode() 
+    byte_encoded_df2 = df2.to_csv(None, index=False).encode()
+    byte_encoded_df3 = df3.to_csv(None, index=False).encode()
+    byte_encoded_df4 = df4.to_csv(None, index=False).encode()
+    byte_encoded_df5 = df5.to_csv(None, index=False).encode() #encodes file as binary
+    
+    s3 = s3fs.S3FileSystem(anon=False)
+    with s3.open(filename1, 'wb') as file:
+        file.write(byte_encoded_df1) 
+        
+    with s3.open(filename2, 'wb') as file:
+        file.write(byte_encoded_df2) 
+        
+    with s3.open(filename3, 'wb') as file:
+        file.write(byte_encoded_df3) 
+    
+    with s3.open(filename4, 'wb') as file:
+        file.write(byte_encoded_df4) 
+    
+    with s3.open(filename5, 'wb') as file:
+        file.write(byte_encoded_df5) 
+        
+    print("Successfull")
