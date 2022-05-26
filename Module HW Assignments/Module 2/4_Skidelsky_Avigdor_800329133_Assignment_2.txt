@@ -1,0 +1,66 @@
+update t_ord_order
+set 
+ord_id = '1543',
+status_code = 'dis',
+ord_disp_dt = '02/20/2020'
+where 
+ord_id in('1543');
+
+update t_ord_item
+set 
+ord_id = '1543',
+status_code = 'cur'
+where 
+oitem_id in('2142', '8044', '476', '7462');
+
+
+use `dav6100_db_2_rpt`;
+
+alter table `dim_orders`
+add column `order_status` varchar(50) after `order_amount`;
+alter table `dim_orders` 
+add column `eff_date` datetime after `order_status`;
+alter table `dim_orders`
+add column `end_date` datetime after `eff_date`;
+select * from `dim_orders`;
+
+update `dim_orders` as `o`
+join `dav6100_db_2`.`t_ord_order` as `t`
+on `o`.`order_id` = `t`.`ord_id` 
+set `o`.`order_status` = `t`.`status_code`, `o`.`eff_date` = `t`.`ord_disp_dt`;
+
+use dav6100_db_2;
+drop trigger if exists `eff_date`;
+delimiter $$
+create trigger `eff_date`
+after update
+on `t_ord_order` for each row
+begin
+        insert into `dav6100_db_2_rpt`.`dim_orders`(`order_id`, `order_status`, `eff_date`, `end_date`) values(new.`ord_id`, new.`status_code`, new.`ord_disp_dt`, null);
+        update `dav6100_db_2_rpt`.`dim_orders` set `order_amount` =
+            (
+                select `order_amount`
+                from (select * from `dav6100_db_2_rpt`.`dim_orders`) as `t`
+                where `order_id` = new.`ord_id` and `order_status` = old.`status_code`
+                );
+        update `dav6100_db_2_rpt`.`dim_orders` set `end_date` = current_date where `order_id` = new.`ord_id` and `order_status` = old.`status_code`;
+
+end$$
+delimiter ;
+
+drop trigger if exists `amt_update`;
+delimiter $$
+create trigger `amt_update`
+after update
+on `t_ord_item` for each row
+begin
+        update `dav6100_db_2_rpt`.`dim_orders` set `order_amount` =
+            (
+                select sum(`ord_item_amt`*`ord_item_qty`) as `ord_amt`
+                from (select * from `dav6100_db_2`.`t_ord_item`) as `t`
+                where `ord_id` = new.`ord_id` and `status_code` = new.`status_code`
+                )
+        where `order_id` = new.`ord_id` and `end_date` is null;
+
+end$$
+delimiter ;

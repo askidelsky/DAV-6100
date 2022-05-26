@@ -1,0 +1,43 @@
+use dav6100_db_2_rpt;
+create table `dim_suppliers`(
+	`supplier_key` int(11) not null auto_increment,
+    `supplier_id` varchar(50) not null,
+    `supplier_name` varchar(1024),
+    `supplier_status` varchar(100),
+    `supplier_country` varchar(100),
+    primary key (`supplier_key`));
+create table `dim_date`(
+	`date_key` int not null auto_increment,
+    `date_string` varchar(100),
+    `date_year` int(11),
+    `date_month` int(11),
+    `date_day` int(11),
+    `date_quarter` int(11),
+    `date_weekday` int(11),
+    `date_week` int(11),
+    `date_date` date,
+    primary key(`date_key`));
+create table `dim_orders`(
+	`order_key` int(11) not null auto_increment,
+    `order_id` varchar(50) not null,
+    `order_amount` varchar(200),
+    primary key(`order_key`));
+create table `dim_product`(
+	`product_key` int(11) not null auto_increment,
+    `product_id` varchar(50) not null,
+    `item_id` varchar(50) not null,
+    `product_description` varchar(1024),
+    `product_category` int(5),
+    primary key(`product_key`));
+create table `fact_orders`(
+	`product_key` int(11) not null,
+    `order_key` int(11) not null,
+    `supplier_key` int(11) not null,
+    `order_date_key` int(11) not null,
+    `item_quantity` int(11),
+    `item_amount` decimal(19,4),
+    constraint `pk_fact_orders` primary key (`product_key`,`order_key`,`supplier_key`,`order_date_key`),
+    constraint `fk_fact_product` foreign key (`product_key`) references `dim_product`(`product_key`),
+    constraint `fk_fact_date` foreign key (`order_date_key`) references `dim_date`(`date_key`),
+    constraint `fk_fact_supplier` foreign key (`supplier_key`) references `dim_suppliers`(`supplier_key`),
+    constraint `fk_fact_order` foreign key (`order_key`) references `dim_orders` (`order_key`));

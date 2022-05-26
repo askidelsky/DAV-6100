@@ -1,0 +1,3 @@
+SELECT count(*)
+FROM "m12_assignment_db"."irs_990as"
+where sub_date like '3%'

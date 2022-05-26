@@ -1,0 +1,35 @@
+insert into `dav6100_db_2_rpt`.`dim_suppliers`
+(`supplier_id`, `supplier_name`, `supplier_status`, `supplier_country`)
+select distinct `t`.`sup_id`, `t`.`sup_name_en`, `b`.`status_label_en`, `r`.`country_label_en`  from `dav6100_db_2.t_sup_supplier` as `t`
+join `dav6100_db_2`.`r_base_stat` as `b` on `b`.`status_code` = `t`.`status_code`
+join `dav6100_db_2`.`r_ctry` as `r` on `r`.`country_code` = `t`.`country_code`;
+
+
+insert into `dav6100_db_2_rpt`.`dim_product`
+(`product_id`, `product_description`, `product_category`)
+select `prod_id`, `prod_desc`, `comm_cd` from `dav6100_db_2`.`r_prod`;
+
+insert into `dav6100_db_2_rpt`.`dim_date`
+(`date_year`, `date_month`, `date_day`, `date_quarter`, `date_weekday`, `date_week`, `date_date`)
+select distinct year(str_to_date(`ord_disp_dt`, '%m/%d/%Y')), month(str_to_date(`ord_disp_dt`, '%m/%d/%Y')),
+ day(str_to_date(`ord_disp_dt`, '%m/%d/%Y')), 
+ quarter(str_to_date(`ord_disp_dt`, '%m/%d/%Y')), weekday(str_to_date(`ord_disp_dt`, '%m/%d/%Y')), 
+ week(str_to_date(`ord_disp_dt`, '%m/%d/%Y')), `ord_disp_dt`
+from `dav6100_db_2`.`t_ord_order`;
+
+insert into `dav6100_db_2_rpt`.`dim_orders`(`order_id`, `order_amount`)
+select `ord_id`, sum(`ord_item_amt`*`ord_item_qty`) as `ord_amt`
+from `dav6100_db_2`.`t_ord_item`
+group by `ord_id`
+having sum(`ord_item_amt`*`ord_item_qty`) <= 100000;
+
+insert into `dav6100_db_2_rpt`.`fact_orders`
+(`product_key`, `order_key`, `order_date_key`, `supplier_key`, `item_quantity`, `item_amount`)
+select `p`.`product_key`, `o`.`order_key`, `d`.`date_key`, `s`.`Supplier_Key`, sum(`i`.`ord_item_qty`), sum(`i`.`ord_item_amt`)
+from `dav6100_db_2`.`t_ord_item` as `i`
+join `dav6100_db_2_rpt`.`dim_product` as `p` on `i`.`prod_id` = `p`.`product_id`
+join `dav6100_db_2_rpt`.`dim_suppliers` as `s` on `i`.`sup_id` = `s`.`supplier_id`
+join `dav6100_db_2`.`t_ord_order` as `to` on `to`.`ord_id` = `i`.`ord_id`
+join `dav6100_db_2_rpt`.`dim_date` as `d` on `d`.`date_date` = `to`.`ord_disp_dt`
+join `dav6100_db_2_rpt`.`dim_orders` as `o` on `to`.`ord_id` = `o`.`order_id`
+group by `p`.`product_key`, `o`.`order_key`, `d`.`date_key`, `s`.`Supplier_Key`;

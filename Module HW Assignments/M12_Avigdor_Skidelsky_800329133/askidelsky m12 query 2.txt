@@ -1,0 +1,4 @@
+SELECT  filing_type, count(*)
+FROM "m12_assignment_db"."irs_990as"
+group by filing_type
+limit 10;

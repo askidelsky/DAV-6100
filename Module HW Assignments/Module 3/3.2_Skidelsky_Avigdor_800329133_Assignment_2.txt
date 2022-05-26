@@ -1,0 +1,23 @@
+select s.supplier_id, s.supplier_name, d.date_quarter, count(distinct f.order_key)
+from fact_orders as f
+join dim_suppliers as s 
+on s.supplier_key = f.supplier_key
+join dim_date as d
+on d.date_key = f.order_date_key
+group by s.supplier_id,d.date_quarter
+order by s.supplier_id, d.date_quarter;
+
+select s.supplier_id, s.supplier_name, count(distinct f.order_key)
+from fact_orders as f
+join dim_suppliers as s
+on f.supplier_key = s.supplier_key
+group by supplier_id
+order by count(distinct f.order_key) desc
+limit 5;
+
+select d.date_quarter, count(distinct f.order_key)
+from fact_orders as f
+join dim_date as d
+on d.date_key = f.order_date_key
+group by d.date_quarter
+order by d.date_quarter;
